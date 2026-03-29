@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP Tool Inspector</title>
+  <!-- Google Identity Services — loads real OAuth when a Client ID is saved -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    /* =====================================================
+       CSS VARIABLES — LIGHT & DARK THEMES
+    ===================================================== */
+    :root {
+      --bg:           #f0f2f8;
+      --bg-surface:   #ffffff;
+      --bg-card:      #f8f9fc;
+      --bg-hover:     #eef1fb;
+      --bg-selected:  #e3e9ff;
+      --text-primary: #111827;
+      --text-sec:     #6b7280;
+      --text-muted:   #9ca3af;
+      --border:       #e5e7eb;
+      --accent:       #4f7ef8;
+      --accent-dim:   #dce8ff;
+      --shadow-sm:    0 1px 4px rgba(0,0,0,0.07);
+      --shadow-md:    0 4px 16px rgba(0,0,0,0.10);
+      --shadow-lg:    0 12px 40px rgba(0,0,0,0.14);
+      --radius:       10px;
+    }
+    [data-theme="dark"] {
+      --bg:           #0d0f17;
+      --bg-surface:   #161922;
+      --bg-card:      #1d2030;
+      --bg-hover:     #222540;
+      --bg-selected:  #272d50;
+      --text-primary: #e8eaf6;
+      --text-sec:     #8b92b8;
+      --text-muted:   #555e85;
+      --border:       #252a44;
+      --accent:       #6b8fff;
+      --accent-dim:   #1a2240;
+      --shadow-sm:    0 1px 4px rgba(0,0,0,0.3);
+      --shadow-md:    0 4px 16px rgba(0,0,0,0.4);
+      --shadow-lg:    0 12px 40px rgba(0,0,0,0.6);
+    }
+
+    /* =====================================================
+       SETUP SCREEN
+    ===================================================== */
+    #setup-screen {
+      display: none; align-items: center; justify-content: center;
+      height: 100vh; background: var(--bg);
+    }
+    #setup-screen.show { display: flex; }
+    .setup-card {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 44px 40px 36px; width: 460px;
+      box-shadow: var(--shadow-lg);
+    }
+    .setup-step {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--accent); color: #fff;
+      font-size: 13px; font-weight: 700; margin-bottom: 18px;
+    }
+    .setup-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .setup-sub   { font-size: 13px; color: var(--text-sec); margin-bottom: 24px; line-height: 1.6; }
+    .setup-steps {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px 18px; margin-bottom: 22px;
+      font-size: 13px; color: var(--text-sec); line-height: 2;
+    }
+    .setup-steps a {
+      color: var(--accent); text-decoration: none; font-weight: 500;
+    }
+    .setup-steps a:hover { text-decoration: underline; }
+    .setup-steps ol { padding-left: 18px; }
+    .setup-steps li { margin-bottom: 2px; }
+    .setup-input-wrap { position: relative; margin-bottom: 14px; }
+    .setup-input {
+      width: 100%; padding: 11px 14px;
+      border: 1.5px solid var(--border); border-radius: 9px;
+      background: var(--bg); color: var(--text-primary);
+      font-size: 13px; font-family: 'SF Mono','Fira Code',monospace;
+      outline: none; transition: border-color .15s;
+    }
+    .setup-input:focus  { border-color: var(--accent); }
+    .setup-input::placeholder { color: var(--text-muted); font-family: inherit; }
+    .setup-btn {
+      width: 100%; padding: 11px;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 9px;
+      font-size: 14px; font-weight: 600;
+      transition: opacity .15s;
+    }
+    .setup-btn:hover { opacity: .88; }
+    .setup-btn:disabled { opacity: .45; cursor: not-allowed; }
+    .setup-note {
+      margin-top: 16px; font-size: 11px; color: var(--text-muted);
+      text-align: center; line-height: 1.6;
+    }
+    .setup-note b { color: var(--text-sec); }
+
+    /* =====================================================
+       RESET & BASE
+    ===================================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text-primary);
+      transition: background .25s, color .25s;
+    }
+    button { cursor: pointer; font-family: inherit; }
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+
+    /* =====================================================
+       TOAST
+    ===================================================== */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: var(--text-primary); color: var(--bg-surface);
+      padding: 9px 18px; border-radius: 20px; font-size: 13px; font-weight: 500;
+      opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; z-index: 9999;
+      white-space: nowrap;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* =====================================================
+       LOGIN SCREEN
+    ===================================================== */
+    #login-screen {
+      display: flex; align-items: center; justify-content: center;
+      height: 100vh; background: var(--bg);
+    }
+    .login-card {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 52px 44px 40px; text-align: center;
+      width: 400px; box-shadow: var(--shadow-lg);
+    }
+    .login-icon {
+      width: 60px; height: 60px; margin: 0 auto 22px;
+      background: linear-gradient(135deg, #4f7ef8 0%, #9b5cf6 100%);
+      border-radius: 16px; display: flex; align-items: center; justify-content: center;
+      font-size: 28px; box-shadow: 0 6px 20px rgba(79,126,248,.3);
+    }
+    .login-title { font-size: 23px; font-weight: 700; margin-bottom: 8px; }
+    .login-sub { font-size: 14px; color: var(--text-sec); margin-bottom: 32px; line-height: 1.5; }
+    /* Google button — styled to spec */
+    .g-btn {
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      width: 100%; padding: 11px 16px;
+      background: #fff; border: 1px solid #dadce0; border-radius: 4px;
+      font-size: 14px; font-weight: 500; color: #3c4043;
+      transition: background .15s, box-shadow .15s;
+    }
+    .g-btn:hover { background: #f8f9fa; box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+    .g-btn svg { flex-shrink: 0; }
+    .login-note {
+      margin-top: 22px; font-size: 11px; color: var(--text-muted); line-height: 1.6;
+    }
+    .login-note code {
+      background: var(--bg-card); padding: 1px 5px; border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px;
+    }
+
+    /* =====================================================
+       GOOGLE ACCOUNT PICKER MODAL
+    ===================================================== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.45); z-index: 500;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .g-picker {
+      background: #fff; border-radius: 28px; width: 360px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.28); overflow: hidden;
+      animation: popIn .18s ease;
+    }
+    @keyframes popIn {
+      from { transform: scale(.94); opacity: 0; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+    .g-picker-head {
+      padding: 28px 28px 16px; text-align: center; border-bottom: 1px solid #e8eaed;
+    }
+    .g-picker-logo { margin-bottom: 14px; }
+    .g-picker-head h2 { font-size: 18px; font-weight: 400; color: #202124; margin-bottom: 4px; }
+    .g-picker-head p  { font-size: 13px; color: #5f6368; }
+    .g-account {
+      display: flex; align-items: center; gap: 14px;
+      padding: 14px 20px; cursor: pointer; transition: background .12s;
+    }
+    .g-account:hover { background: #f1f3f4; }
+    .g-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, #4f7ef8, #9b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 16px; font-weight: 700; flex-shrink: 0;
+    }
+    .g-account-name  { font-size: 14px; font-weight: 500; color: #202124; }
+    .g-account-email { font-size: 12px; color: #5f6368; }
+    .g-picker-foot {
+      padding: 12px 20px 20px; display: flex; justify-content: flex-end;
+    }
+    .g-btn-cancel {
+      border: none; background: none; color: #1a73e8;
+      font-size: 14px; font-weight: 500; padding: 8px 16px; border-radius: 4px;
+      transition: background .12s;
+    }
+    .g-btn-cancel:hover { background: #f1f3f4; }
+
+    /* =====================================================
+       APP SHELL
+    ===================================================== */
+    #app { display: none; height: 100vh; flex-direction: column; }
+    #app.show { display: flex; }
+
+    /* HEADER */
+    .app-header {
+      height: 56px; flex-shrink: 0;
+      background: var(--bg-surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 14px; padding: 0 16px;
+      z-index: 10; box-shadow: var(--shadow-sm);
+    }
+    .h-logo {
+      display: flex; align-items: center; gap: 9px; text-decoration: none;
+    }
+    .h-logo-icon {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: linear-gradient(135deg, #4f7ef8, #9b5cf6);
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .h-logo-text {
+      font-size: 15px; font-weight: 700; color: var(--text-primary);
+      white-space: nowrap;
+    }
+    .h-logo-text em { font-style: normal; color: var(--accent); }
+    .h-search {
+      flex: 1; max-width: 380px; position: relative;
+    }
+    .h-search input {
+      width: 100%; padding: 7px 12px 7px 34px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: var(--bg); color: var(--text-primary);
+      font-size: 13px; outline: none; transition: border-color .15s;
+    }
+    .h-search input:focus { border-color: var(--accent); }
+    .h-search input::placeholder { color: var(--text-muted); }
+    .h-search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      color: var(--text-muted); pointer-events: none; font-size: 14px;
+    }
+    .h-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .h-stat {
+      font-size: 12px; color: var(--text-muted);
+      background: var(--bg-card); border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 20px; white-space: nowrap;
+    }
+    .h-stat b { color: var(--accent); }
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; color: var(--text-sec); transition: background .15s;
+    }
+    .icon-btn:hover { background: var(--bg-hover); }
+    .user-pill {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 12px 4px 5px;
+      border: 1px solid var(--border); border-radius: 20px;
+      background: var(--bg); transition: background .15s;
+      position: relative; cursor: pointer;
+    }
+    .user-pill:hover { background: var(--bg-hover); }
+    .user-pill-av {
+      width: 26px; height: 26px; border-radius: 50%;
+      background: linear-gradient(135deg, #4f7ef8, #9b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 11px; font-weight: 700;
+    }
+    .user-pill-name { font-size: 13px; font-weight: 500; }
+    /* User dropdown */
+    .user-dropdown {
+      display: none; position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 12px; box-shadow: var(--shadow-md);
+      min-width: 210px; z-index: 100; overflow: hidden;
+      animation: fadeUp .15s ease;
+    }
+    .user-dropdown.open { display: block; }
+    .ud-header {
+      padding: 14px 16px 10px; border-bottom: 1px solid var(--border);
+    }
+    .ud-name  { font-size: 13px; font-weight: 600; }
+    .ud-email { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .ud-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 16px; font-size: 13px; cursor: pointer;
+      transition: background .12s; color: var(--text-primary);
+    }
+    .ud-item:hover { background: var(--bg-hover); }
+    .ud-item.danger { color: #ef4444; }
+    .ud-item.danger:hover { background: #fef2f2; }
+    [data-theme="dark"] .ud-item.danger:hover { background: #3a0f0f; }
+
+    /* MAIN LAYOUT */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 272px; flex-shrink: 0; display: flex; flex-direction: column;
+      background: var(--bg-surface); border-right: 1px solid var(--border);
+      overflow: hidden;
+    }
+    .sb-filters {
+      padding: 10px 10px 6px; display: flex; gap: 4px; flex-shrink: 0;
+    }
+    .sb-tab {
+      flex: 1; padding: 6px 8px; border-radius: 7px; border: none;
+      background: transparent; color: var(--text-sec); font-size: 12px; font-weight: 500;
+      transition: all .15s; white-space: nowrap;
+    }
+    .sb-tab.on  { background: var(--accent); color: #fff; }
+    .sb-tab:not(.on):hover { background: var(--bg-hover); color: var(--text-primary); }
+    .sb-meta {
+      padding: 2px 14px 8px; font-size: 11px; color: var(--text-muted); flex-shrink: 0;
+    }
+    .sb-list { flex: 1; overflow-y: auto; padding: 2px 8px 8px; }
+    .sb-group { margin-bottom: 6px; }
+    .sb-group-label {
+      font-size: 10px; font-weight: 600; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--text-muted); padding: 8px 8px 4px;
+    }
+    .sb-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 8px;
+      cursor: pointer; transition: background .12s; user-select: none;
+    }
+    .sb-item:hover     { background: var(--bg-hover); }
+    .sb-item.active    { background: var(--bg-selected); }
+    .sb-icon {
+      width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 17px;
+    }
+    .sb-info    { flex: 1; min-width: 0; }
+    .sb-name    { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sb-subtype { font-size: 11px; color: var(--text-muted); }
+    .sb-badge {
+      font-size: 10px; font-weight: 600; padding: 2px 7px;
+      border-radius: 99px; background: var(--bg-card); color: var(--text-sec);
+      flex-shrink: 0;
+    }
+    .sb-item.active .sb-badge { background: var(--accent); color: #fff; }
+    .sb-empty { padding: 20px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+    /* DETAIL PANEL */
+    .detail {
+      flex: 1; overflow-y: auto; padding: 28px 32px;
+      background: var(--bg);
+    }
+    .detail-empty {
+      height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--text-muted); text-align: center; gap: 12px;
+    }
+    .detail-empty-icon { font-size: 52px; }
+    .detail-empty p { font-size: 14px; }
+    /* header */
+    .d-header {
+      display: flex; gap: 18px; align-items: flex-start;
+      padding-bottom: 24px; margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .d-icon {
+      width: 58px; height: 58px; border-radius: 16px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 26px;
+    }
+    .d-info { flex: 1; }
+    .d-name { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .d-desc { font-size: 13px; color: var(--text-sec); line-height: 1.6; margin-bottom: 12px; }
+    .d-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+    .badge {
+      font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 6px;
+    }
+    .badge-mcp  { background: #dbeafe; color: #1d4ed8; }
+    .badge-skill{ background: #d1fae5; color: #065f46; }
+    .badge-data { background: #fef3c7; color: #92400e; }
+    .badge-eng  { background: #ede9fe; color: #5b21b6; }
+    .badge-ns   { background: var(--bg-card); color: var(--text-sec); font-family: 'SF Mono','Fira Code',monospace; font-size: 10px; }
+    [data-theme="dark"] .badge-mcp   { background: #172554; color: #93c5fd; }
+    [data-theme="dark"] .badge-skill { background: #064e3b; color: #6ee7b7; }
+    [data-theme="dark"] .badge-data  { background: #451a03; color: #fcd34d; }
+    [data-theme="dark"] .badge-eng   { background: #2e1065; color: #c4b5fd; }
+    /* stats row */
+    .d-stats { display: flex; gap: 12px; margin-bottom: 28px; }
+    .stat-box {
+      flex: 1; background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 16px; text-align: center;
+    }
+    .stat-val { font-size: 24px; font-weight: 700; color: var(--accent); }
+    .stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    /* tools grid */
+    .d-section-title {
+      font-size: 12px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: .07em; color: var(--text-muted); margin-bottom: 12px;
+    }
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 10px;
+    }
+    .tool-card {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 14px 14px 12px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .tool-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 12px rgba(79,126,248,.12);
+    }
+    .tool-card-top {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      gap: 8px; margin-bottom: 6px;
+    }
+    .tool-fn {
+      font-size: 12px; font-weight: 600;
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      color: var(--text-primary); word-break: break-all; line-height: 1.4;
+    }
+    .copy-btn {
+      flex-shrink: 0; width: 22px; height: 22px; border-radius: 5px;
+      border: 1px solid var(--border); background: transparent;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px; color: var(--text-muted);
+      opacity: 0; transition: opacity .15s, background .15s, color .15s;
+    }
+    .tool-card:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { background: var(--bg-hover); color: var(--accent); }
+    .tool-desc {
+      font-size: 12px; color: var(--text-sec); line-height: 1.55;
+    }
+    /* animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .2s ease; }
+  </style>
+</head>
+<body>
+
+<!-- ========================================================
+     TOAST
+======================================================== -->
+<div id="toast"></div>
+
+<!-- ========================================================
+     SETUP SCREEN  (shown on first use — no Client ID saved yet)
+======================================================== -->
+<div id="setup-screen">
+  <div class="setup-card">
+    <div class="setup-step">1</div>
+    <h1 class="setup-title">Connect Google Sign-In</h1>
+    <p class="setup-sub">
+      Your Client ID lives <strong>only in this browser's localStorage</strong> — never written into the HTML file itself.
+      Revoke access any time by clicking <em>Clear credentials</em> in the app.
+    </p>
+
+    <div class="setup-steps">
+      <strong>Where to find your Client ID:</strong>
+      <ol>
+        <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console → Credentials ↗</a></li>
+        <li>Click <strong>+ Create Credentials</strong> → <strong>OAuth client ID</strong></li>
+        <li>Choose <strong>Web application</strong>, add your origin to Authorized URIs</li>
+        <li>Copy the <strong>Client ID</strong> (ends in <code>.apps.googleusercontent.com</code>)</li>
+      </ol>
+    </div>
+
+    <div class="setup-input-wrap">
+      <input
+        id="client-id-input"
+        class="setup-input"
+        type="text"
+        placeholder="xxxxxxxxxx.apps.googleusercontent.com"
+        oninput="onClientIdInput(this.value)"
+        autocomplete="off" spellcheck="false"
+      >
+    </div>
+    <button class="setup-btn" id="setup-save-btn" disabled onclick="saveClientId()">
+      Save &amp; Continue →
+    </button>
+    <p class="setup-note">
+      <b>No Client ID?</b> You can still explore the tool inspector in demo mode.<br>
+      <a href="#" onclick="enterDemoMode(); return false;" style="color:var(--accent);">Continue without Google Sign-In →</a>
+    </p>
+  </div>
+</div>
+
+<!-- ========================================================
+     LOGIN SCREEN  (shown after Client ID is saved)
+======================================================== -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-icon">🔍</div>
+    <h1 class="login-title">MCP Tool Inspector</h1>
+    <p class="login-sub">Sign in to continue. Your session stays local.</p>
+
+    <!-- Real GIS button renders here when Client ID is present -->
+    <div id="gsi-btn-container" style="display:flex;justify-content:center;margin-bottom:12px;min-height:44px;"></div>
+
+    <!-- Fallback mock button (shown if GIS fails to load) -->
+    <button class="g-btn" id="mock-g-btn" style="display:none;" onclick="openPicker()">
+      <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+        <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 01-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+        <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#34A853"/>
+        <path d="M3.964 10.706A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.706V4.962H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.038l3.007-2.332z" fill="#FBBC05"/>
+        <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.962L3.964 7.294C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+      </svg>
+      Sign in with Google
+    </button>
+
+    <p class="login-note" id="login-client-hint" style="margin-top:14px;"></p>
+    <p class="login-note" style="margin-top:8px;">
+      <a href="#" onclick="resetClientId(); return false;" style="color:var(--accent);">Change Client ID</a>
+    </p>
+  </div>
+</div>
+
+<!-- ========================================================
+     GOOGLE ACCOUNT PICKER MODAL  (fallback / demo mode)
+======================================================== -->
+<div class="modal-overlay" id="modal" onclick="overlayClick(event)">
+  <div class="g-picker" id="g-picker">
+    <div class="g-picker-head">
+      <div class="g-picker-logo">
+        <svg viewBox="0 0 66 22" height="22" xmlns="http://www.w3.org/2000/svg">
+          <text font-family="'Product Sans',Arial,sans-serif" font-size="22" font-weight="400">
+            <tspan fill="#4285F4">G</tspan><tspan fill="#EA4335">o</tspan><tspan fill="#FBBC05">o</tspan><tspan fill="#4285F4">g</tspan><tspan fill="#34A853">l</tspan><tspan fill="#EA4335">e</tspan>
+          </text>
+        </svg>
+      </div>
+      <h2>Choose an account</h2>
+      <p>to continue to MCP Inspector</p>
+    </div>
+    <div class="g-account" onclick="doSignIn('Demo User', 'demo@example.com')">
+      <div class="g-avatar">D</div>
+      <div>
+        <div class="g-account-name">Demo User</div>
+        <div class="g-account-email">demo@example.com</div>
+      </div>
+    </div>
+    <div class="g-picker-foot">
+      <button class="g-btn-cancel" onclick="closePicker()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================
+     APP
+======================================================== -->
+<div id="app">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="h-logo">
+      <div class="h-logo-icon">🔍</div>
+      <span class="h-logo-text">MCP <em>Inspector</em></span>
+    </div>
+    <div class="h-search">
+      <span class="h-search-icon">🔎</span>
+      <input id="search" type="text" placeholder="Search plugins and tools…" oninput="onSearch(this.value)">
+    </div>
+    <div class="h-right">
+      <div class="h-stat" id="header-stat"><b>—</b> plugins · <b>—</b> tools</div>
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light / dark mode">🌙</button>
+      <div class="user-pill" onclick="toggleUserMenu(event)" id="user-pill">
+        <div class="user-pill-av" id="pill-av">?</div>
+        <span class="user-pill-name" id="pill-name">Guest</span>
+        <span style="font-size:10px;color:var(--text-muted);margin-left:2px;">▾</span>
+        <div class="user-dropdown" id="user-dropdown">
+          <div class="ud-header">
+            <div class="ud-name"  id="ud-name">—</div>
+            <div class="ud-email" id="ud-email">—</div>
+          </div>
+          <div class="ud-item" onclick="signOut()">🚪 Sign out</div>
+          <div class="ud-item danger" onclick="revokeCredentials()">🗑️ Clear saved Client ID</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="main">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sb-filters">
+        <button class="sb-tab on"  onclick="setFilter('all',  this)">All</button>
+        <button class="sb-tab"     onclick="setFilter('mcp',  this)">MCP Servers</button>
+        <button class="sb-tab"     onclick="setFilter('skill',this)">Skills</button>
+      </div>
+      <div class="sb-meta" id="sb-meta"></div>
+      <div class="sb-list" id="sb-list"></div>
+    </aside>
+
+    <!-- Detail panel -->
+    <main class="detail" id="detail">
+      <div class="detail-empty">
+        <div class="detail-empty-icon">🔌</div>
+        <p>Select a plugin from the sidebar<br>to inspect its tools and capabilities.</p>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   PLUGIN DATA  — sourced from current Cowork session
+   (12 MCP servers + 17 skills = 29 plugins, 150+ tools)
+============================================================ */
+const PLUGINS = [
+  /* ---- MCP SERVERS ---- */
+  {
+    id:'gmail', name:'Gmail', type:'mcp', ns:'mcp__gmail',
+    icon:'📧', color:'#EA4335',
+    desc:'Read, search, compose, and draft emails via Gmail. Supports full Gmail search syntax, thread reading, label management, and draft composition without sending.',
+    tools:[
+      {n:'gmail_create_draft',      d:'Compose and save an email as a draft. Specify to, cc, bcc, subject, and body — without sending.'},
+      {n:'gmail_get_profile',       d:'Retrieve Gmail account profile info including email address, display name, and storage usage.'},
+      {n:'gmail_list_drafts',       d:'List all saved drafts in the Gmail account with subject, recipients, and snippet.'},
+      {n:'gmail_list_labels',       d:'Fetch all labels/folders — system labels (Inbox, Sent, Spam) and user-created ones.'},
+      {n:'gmail_read_message',      d:'Read the full content of a specific Gmail message by ID — headers, body, and attachment metadata.'},
+      {n:'gmail_read_thread',       d:'Read an entire email conversation thread with all messages in chronological order.'},
+      {n:'gmail_search_messages',   d:'Search Gmail using full query syntax: from:, to:, subject:, has:attachment, is:unread, after:, etc.'},
+    ]
+  },
+  {
+    id:'gcal', name:'Google Calendar', type:'mcp', ns:'mcp__gcal',
+    icon:'📅', color:'#4285F4',
+    desc:'Manage Google Calendar — create, update, delete, and list events. Find free slots, check meeting availability across attendees, and respond to invitations.',
+    tools:[
+      {n:'gcal_create_event',       d:'Create a new event with title, start/end, location, description, attendees, and video conferencing.'},
+      {n:'gcal_delete_event',       d:'Permanently delete a calendar event by its ID.'},
+      {n:'gcal_find_meeting_times', d:'Find available time windows that work across all specified attendees\' calendars.'},
+      {n:'gcal_find_my_free_time',  d:'Identify open time blocks in the user\'s own calendar within a given date range.'},
+      {n:'gcal_get_event',          d:'Retrieve full event details — title, time, location, attendee list, RSVP status, conference link.'},
+      {n:'gcal_list_calendars',     d:'List all calendars accessible to the user: primary, shared, and subscribed.'},
+      {n:'gcal_list_events',        d:'List events in a calendar within a specified time range, with optional text filter.'},
+      {n:'gcal_respond_to_event',   d:'Accept, tentatively accept, or decline a calendar invitation on behalf of the user.'},
+      {n:'gcal_update_event',       d:'Modify an existing event — update time, title, description, location, or attendees.'},
+    ]
+  },
+  {
+    id:'supabase', name:'Supabase', type:'mcp', ns:'mcp__supabase',
+    icon:'🗄️', color:'#3ECF8E',
+    desc:'Full Supabase backend control — execute SQL, apply migrations, deploy edge functions, manage database branches, and retrieve logs and advisor recommendations.',
+    tools:[
+      {n:'apply_migration',          d:'Apply a SQL migration file to the database, tracking it in migration history.'},
+      {n:'confirm_cost',             d:'Confirm the estimated cost of a billable operation before committing.'},
+      {n:'create_branch',            d:'Create a new database branch for isolated feature development.'},
+      {n:'create_project',           d:'Provision a new Supabase project in a given region and organization.'},
+      {n:'delete_branch',            d:'Delete an existing database branch and its associated resources.'},
+      {n:'deploy_edge_function',     d:'Deploy or update a serverless Deno Edge Function to a Supabase project.'},
+      {n:'execute_sql',              d:'Run arbitrary SQL queries against the database and return structured results.'},
+      {n:'generate_typescript_types',d:'Auto-generate TypeScript type definitions from the current database schema.'},
+      {n:'get_advisors',             d:'Get security and performance advisor recommendations for the project.'},
+      {n:'get_cost',                 d:'Retrieve the estimated cost of a proposed operation.'},
+      {n:'get_edge_function',        d:'Retrieve source code and metadata of a deployed Edge Function.'},
+      {n:'get_logs',                 d:'Fetch API, database, auth, or edge function logs with optional time range filter.'},
+      {n:'get_organization',         d:'Get organization details: billing plan, members, and settings.'},
+      {n:'get_project',              d:'Get details about a specific project — status, region, database connection info.'},
+      {n:'get_project_url',          d:'Retrieve the base API URL for a Supabase project.'},
+      {n:'get_publishable_keys',     d:'Get the anonymous/public API keys for client-side usage.'},
+      {n:'list_branches',            d:'List all database branches with status, Git branch, and creation date.'},
+      {n:'list_edge_functions',      d:'List all deployed Edge Functions and their deployment status.'},
+      {n:'list_extensions',          d:'List installed and available PostgreSQL extensions.'},
+      {n:'list_migrations',          d:'List all applied migrations with version, name, and timestamp.'},
+      {n:'list_organizations',       d:'List all organizations the authenticated user belongs to.'},
+      {n:'list_projects',            d:'List all Supabase projects in an organization.'},
+      {n:'list_tables',              d:'List all tables in the database with schema, columns, and estimated row counts.'},
+      {n:'merge_branch',             d:'Merge schema changes from a development branch into the main branch.'},
+      {n:'pause_project',            d:'Pause a project to suspend compute and reduce costs during inactivity.'},
+      {n:'rebase_branch',            d:'Rebase a branch to incorporate the latest main branch changes.'},
+      {n:'reset_branch',             d:'Reset a branch to its initial state, discarding all branch-specific changes.'},
+      {n:'restore_project',          d:'Resume a previously paused project and restore compute resources.'},
+      {n:'search_docs',              d:'Search the official Supabase documentation for guides and API references.'},
+    ]
+  },
+  {
+    id:'chrome', name:'Claude in Chrome', type:'mcp', ns:'mcp__Claude_in_Chrome',
+    icon:'🌐', color:'#FF6D00',
+    desc:'Browser automation and control — navigate pages, interact with DOM elements, execute JavaScript, read console & network logs, manage tabs, and capture screenshots.',
+    tools:[
+      {n:'computer',               d:'Control the system mouse and keyboard for desktop-level automation beyond the browser.'},
+      {n:'file_upload',            d:'Upload a local file to a browser file input element on the current page.'},
+      {n:'find',                   d:'Locate elements on the page by text, CSS selector, or natural language description.'},
+      {n:'form_input',             d:'Fill in form fields, checkboxes, dropdowns, and text areas with specified values.'},
+      {n:'get_page_text',          d:'Extract all visible text from the current page as clean plain text.'},
+      {n:'gif_creator',            d:'Create an animated GIF from a sequence of browser screenshots — great for demos.'},
+      {n:'javascript_tool',        d:'Execute arbitrary JavaScript in the context of the current browser tab.'},
+      {n:'navigate',               d:'Navigate the browser to a URL and wait for the page to fully load.'},
+      {n:'read_console_messages',  d:'Read browser console logs, warnings, errors, and debug output from the current tab.'},
+      {n:'read_network_requests',  d:'Inspect XHR, fetch, and WebSocket network requests made by the current page.'},
+      {n:'read_page',              d:'Read and parse the current page\'s DOM structure and interactive elements.'},
+      {n:'resize_window',          d:'Resize the browser window to specific pixel dimensions for responsive testing.'},
+      {n:'shortcuts_execute',      d:'Execute a keyboard shortcut or key combination in the browser.'},
+      {n:'shortcuts_list',         d:'List all registered keyboard shortcuts for the current page or browser.'},
+      {n:'switch_browser',         d:'Switch focus between browser windows, profiles, or instances.'},
+      {n:'tabs_close_mcp',         d:'Close a specific browser tab by its ID.'},
+      {n:'tabs_context_mcp',       d:'Get context about the current tab: URL, title, load status.'},
+      {n:'tabs_create_mcp',        d:'Open a new browser tab, optionally navigating to a specified URL.'},
+      {n:'upload_image',           d:'Upload an image to a browser image input or drag-and-drop target.'},
+    ]
+  },
+  {
+    id:'blender', name:'Blender 3D', type:'mcp', ns:'mcp__blender',
+    icon:'🎨', color:'#E87D0D',
+    desc:'AI-powered 3D creation inside Blender — generate models from text or images, download free assets from PolyHaven & Sketchfab, control the scene, and run Python scripts.',
+    tools:[
+      {n:'download_polyhaven_asset',        d:'Download a free HDRI, texture, or 3D model from the Poly Haven library.'},
+      {n:'download_sketchfab_model',        d:'Download and import a 3D model from Sketchfab into the Blender scene.'},
+      {n:'execute_blender_code',            d:'Run arbitrary Python code inside Blender\'s scripting environment for full scene control.'},
+      {n:'generate_hunyuan3d_model',        d:'Generate a 3D mesh from a text prompt or image using Hunyuan3D AI.'},
+      {n:'generate_hyper3d_model_via_images',d:'Generate a high-quality 3D model from one or more reference images using Hyper3D Rodin.'},
+      {n:'generate_hyper3d_model_via_text', d:'Generate a 3D model from a natural language description using Hyper3D Rodin.'},
+      {n:'get_hunyuan3d_status',            d:'Check the generation status of an active Hunyuan3D job.'},
+      {n:'get_hyper3d_status',              d:'Check the generation status of an active Hyper3D Rodin job.'},
+      {n:'get_object_info',                 d:'Get transforms, materials, and mesh data for a specific Blender scene object.'},
+      {n:'get_polyhaven_categories',        d:'List available asset categories on Poly Haven: HDRIs, textures, models.'},
+      {n:'get_polyhaven_status',            d:'Check the download progress of a Poly Haven asset.'},
+      {n:'get_scene_info',                  d:'Get a full overview of the Blender scene: objects, cameras, lights, render settings.'},
+      {n:'get_sketchfab_model_preview',     d:'Preview a Sketchfab model\'s thumbnail and metadata before downloading.'},
+      {n:'get_sketchfab_status',            d:'Check the import status of a Sketchfab model download.'},
+      {n:'import_generated_asset',          d:'Import a Hyper3D/Rodin-generated 3D asset into the current Blender scene.'},
+      {n:'import_generated_asset_hunyuan',  d:'Import a Hunyuan3D-generated asset into the active Blender scene.'},
+      {n:'poll_hunyuan_job_status',         d:'Poll until a Hunyuan3D generation job completes and return the result.'},
+      {n:'poll_rodin_job_status',           d:'Poll until a Rodin 3D generation job completes and return the result.'},
+      {n:'search_polyhaven_assets',         d:'Search Poly Haven for HDRIs, textures, or 3D models by keyword.'},
+      {n:'search_sketchfab_models',         d:'Search Sketchfab for 3D models by keyword, category, or license.'},
+      {n:'set_texture',                     d:'Apply a texture or material to an object in the current Blender scene.'},
+    ]
+  },
+  {
+    id:'trivago', name:'Trivago', type:'mcp', ns:'mcp__trivago',
+    icon:'🏨', color:'#0070BA',
+    desc:'Search hotels and accommodations via Trivago. Supports destination search, radius-based geographic search, and autocomplete suggestions.',
+    tools:[
+      {n:'trivago-accommodation-radius-search',d:'Search for hotels within a specified radius (km) from a geographic coordinate.'},
+      {n:'trivago-accommodation-search',       d:'Search accommodations by destination, check-in/out dates, guest count, and filters.'},
+      {n:'trivago-search-suggestions',         d:'Get autocomplete destination suggestions as the user types a location query.'},
+    ]
+  },
+  {
+    id:'cowork', name:'Cowork', type:'mcp', ns:'mcp__cowork',
+    icon:'🗂️', color:'#7C3AED',
+    desc:'Cowork desktop integration — manage file access permissions, present deliverables to the user, and request workspace directory selection.',
+    tools:[
+      {n:'allow_cowork_file_delete', d:'Grant Claude permission to delete files within the connected workspace directory.'},
+      {n:'present_files',            d:'Display output files to the user through the Cowork interface for preview or download.'},
+      {n:'request_cowork_directory', d:'Prompt the user to select a folder from their computer as the working directory.'},
+    ]
+  },
+  {
+    id:'registry', name:'MCP Registry', type:'mcp', ns:'mcp__mcp-registry',
+    icon:'🔌', color:'#0EA5E9',
+    desc:'Discover and install MCP servers from the registry. Search for new capabilities by keyword, and get smart connector suggestions for tasks.',
+    tools:[
+      {n:'search_mcp_registry', d:'Search the MCP registry for available servers and plugins by keyword or category.'},
+      {n:'suggest_connectors',  d:'Suggest relevant MCP connectors to install based on the current task description.'},
+    ]
+  },
+  {
+    id:'pdf-viewer', name:'PDF Viewer', type:'mcp', ns:'mcp__pdf-viewer',
+    icon:'📄', color:'#DC2626',
+    desc:'Display, interact with, and extract data from PDF files within the Cowork PDF viewer side panel.',
+    tools:[
+      {n:'display_pdf',       d:'Open and display a PDF file in the Cowork PDF viewer side panel.'},
+      {n:'interact',          d:'Interact with elements in the displayed PDF: click, scroll, select text.'},
+      {n:'list_pdfs',         d:'List PDF files available to open in the viewer.'},
+      {n:'poll_pdf_commands', d:'Poll for and process pending commands from the PDF viewer interface.'},
+      {n:'read_pdf_bytes',    d:'Read raw byte content of a PDF file for programmatic processing.'},
+      {n:'save_pdf',          d:'Save modifications or form data to a PDF file.'},
+      {n:'submit_page_data',  d:'Submit extracted data from a specific PDF page back to the processing pipeline.'},
+    ]
+  },
+  {
+    id:'plugins', name:'Plugins Manager', type:'mcp', ns:'mcp__plugins',
+    icon:'🧩', color:'#8B5CF6',
+    desc:'Discover and install new plugins and MCP servers from the Cowork and Claude Code plugin marketplace.',
+    tools:[
+      {n:'search_plugins',        d:'Search the plugin marketplace by name, category, or functionality.'},
+      {n:'suggest_plugin_install',d:'Suggest plugins to install based on the current task or user intent.'},
+    ]
+  },
+  {
+    id:'scheduled', name:'Scheduled Tasks', type:'mcp', ns:'mcp__scheduled-tasks',
+    icon:'⏰', color:'#F59E0B',
+    desc:'Create and manage automated tasks that run on a time interval or cron schedule — perfect for recurring reports, reminders, and background workflows.',
+    tools:[
+      {n:'create_scheduled_task', d:'Create a new scheduled task with a prompt, recurrence interval, and optional start time.'},
+      {n:'list_scheduled_tasks',  d:'List all configured tasks with their schedule, status, and last execution time.'},
+      {n:'update_scheduled_task', d:'Modify an existing task\'s prompt, schedule interval, or active/paused state.'},
+    ]
+  },
+  {
+    id:'session', name:'Session Info', type:'mcp', ns:'mcp__session_info',
+    icon:'💬', color:'#10B981',
+    desc:'Access and read conversation session history. List past sessions and retrieve full transcripts for review or analysis.',
+    tools:[
+      {n:'list_sessions',   d:'List all available conversation sessions with IDs, dates, and summary info.'},
+      {n:'read_transcript', d:'Read the full message transcript of a specific conversation session.'},
+    ]
+  },
+
+  /* ---- SKILLS ---- */
+  {
+    id:'sk-docx', name:'Word Documents', type:'skill', cat:'documents', ns:'skill:docx',
+    icon:'📝', color:'#2B579A',
+    desc:'Create, edit, and manipulate professional Microsoft Word (.docx) files — with tables of contents, headings, page numbers, images, tracked changes, and advanced styles.',
+    tools:[
+      {n:'Create .docx',          d:'Generate a new Word document from content with professional formatting and styles.'},
+      {n:'Edit .docx',            d:'Open, modify, and update an existing Word document\'s content and structure.'},
+      {n:'Table of Contents',     d:'Auto-generate a linked TOC based on the document\'s heading hierarchy.'},
+      {n:'Format & Styles',       d:'Apply headings, lists, bold/italic, page layout, and Word styles.'},
+      {n:'Insert images',         d:'Insert, position, and caption images within the document.'},
+      {n:'Headers & Footers',     d:'Add and customize page headers, footers, and page numbers.'},
+    ]
+  },
+  {
+    id:'sk-pdf', name:'PDF Processing', type:'skill', cat:'documents', ns:'skill:pdf',
+    icon:'📑', color:'#DC2626',
+    desc:'Comprehensive PDF toolkit — create new PDFs, extract text and tables, merge and split documents, rotate pages, add watermarks, and fill interactive forms.',
+    tools:[
+      {n:'Create PDF',      d:'Generate a new PDF from content, HTML, or markdown.'},
+      {n:'Extract text',    d:'Extract structured text from PDF pages, preserving layout where possible.'},
+      {n:'Extract tables',  d:'Pull tabular data from PDF pages into structured formats.'},
+      {n:'Merge PDFs',      d:'Combine multiple PDF files into a single document in specified order.'},
+      {n:'Split PDF',       d:'Split a PDF into individual pages or specified page ranges.'},
+      {n:'Fill form',       d:'Programmatically fill interactive PDF form fields.'},
+      {n:'Add watermark',   d:'Overlay a text or image watermark on all or selected PDF pages.'},
+    ]
+  },
+  {
+    id:'sk-pptx', name:'PowerPoint', type:'skill', cat:'documents', ns:'skill:pptx',
+    icon:'📊', color:'#D04A02',
+    desc:'Create, edit, and parse PowerPoint presentations — slide decks, pitch decks, data presentations with charts, speaker notes, and professional templates.',
+    tools:[
+      {n:'Create presentation', d:'Build a new .pptx from scratch with layouts, titles, content, and branding.'},
+      {n:'Edit slides',         d:'Modify existing slides — update text, images, charts, and layouts in place.'},
+      {n:'Extract content',     d:'Read and extract text, data, and notes from an existing .pptx file.'},
+      {n:'Insert charts',       d:'Add bar, line, pie, and other chart types with embedded data.'},
+      {n:'Speaker notes',       d:'Add, edit, or extract speaker notes from individual slides.'},
+    ]
+  },
+  {
+    id:'sk-xlsx', name:'Excel Spreadsheets', type:'skill', cat:'documents', ns:'skill:xlsx',
+    icon:'📈', color:'#217346',
+    desc:'Create and manipulate Microsoft Excel (.xlsx) files — data entry, formulas, pivot tables, charts, conditional formatting, and multi-sheet workbooks.',
+    tools:[
+      {n:'Create spreadsheet',  d:'Generate a new .xlsx file with data, headers, and initial formatting.'},
+      {n:'Edit data',           d:'Read and modify cell values, ranges, and formulas in an existing spreadsheet.'},
+      {n:'Add formulas',        d:'Insert Excel formulas: SUM, VLOOKUP, INDEX/MATCH, IF, and more.'},
+      {n:'Create charts',       d:'Generate embedded charts and graphs within the workbook.'},
+      {n:'Conditional format',  d:'Apply rules-based cell formatting to highlight data patterns.'},
+    ]
+  },
+  {
+    id:'sk-schedule', name:'Task Scheduler', type:'skill', cat:'automation', ns:'skill:schedule',
+    icon:'⏱️', color:'#F59E0B',
+    desc:'Set up recurring automated tasks with natural language instructions and flexible time schedules — intervals, daily, weekly, or custom cron expressions.',
+    tools:[
+      {n:'Schedule task',   d:'Configure a new recurring task with a prompt and execution interval.'},
+      {n:'Cron expression', d:'Define precise schedules using cron syntax for fine-grained control.'},
+    ]
+  },
+  {
+    id:'sk-creator', name:'Skill Creator', type:'skill', cat:'automation', ns:'skill:skill-creator',
+    icon:'🛠️', color:'#7C3AED',
+    desc:'Build, improve, and benchmark custom skills. Write skill instructions, run evaluation cases, measure output quality with variance analysis, and optimize trigger descriptions.',
+    tools:[
+      {n:'Create skill',          d:'Author a new custom skill from scratch with prompt instructions and examples.'},
+      {n:'Edit skill',            d:'Modify and improve an existing skill\'s instructions or configuration.'},
+      {n:'Run evaluations',       d:'Test a skill against a set of cases to measure accuracy and quality.'},
+      {n:'Benchmark performance', d:'Analyze skill output consistency across multiple runs with variance metrics.'},
+      {n:'Optimize triggers',     d:'Improve a skill\'s description to increase correct activation accuracy.'},
+    ]
+  },
+  {
+    id:'sk-d-analyze', name:'Data Analysis', type:'skill', cat:'data', ns:'skill:data:analyze',
+    icon:'📉', color:'#F59E0B',
+    desc:'Answer data questions from quick lookups to full stakeholder analyses — investigate metric trends, compare segments, and produce formal reports with findings.',
+    tools:[
+      {n:'Quick lookup',        d:'Retrieve a single metric or data point from a source.'},
+      {n:'Trend investigation', d:'Investigate what\'s driving a trend, spike, or drop in a key metric.'},
+      {n:'Segment comparison',  d:'Compare performance across user segments, cohorts, or dimensions over time.'},
+      {n:'Stakeholder report',  d:'Generate a formal analysis report with narrative, charts, and recommendations.'},
+    ]
+  },
+  {
+    id:'sk-d-viz', name:'Data Visualization', type:'skill', cat:'data', ns:'skill:data:create-viz',
+    icon:'📊', color:'#F59E0B',
+    desc:'Create publication-quality charts and interactive visualizations using Python (matplotlib, seaborn, plotly). Applies accessibility and design best practices.',
+    tools:[
+      {n:'Chart from data',    d:'Generate bar, line, scatter, heatmap, and other charts from a DataFrame or query.'},
+      {n:'Interactive charts', d:'Build Plotly charts with hover tooltips, zoom, and pan interactions.'},
+      {n:'Chart type advisor', d:'Select the optimal chart type for a given data shape and audience.'},
+      {n:'Accessibility',      d:'Apply colorblind-friendly palettes and WCAG-compliant contrast ratios.'},
+    ]
+  },
+  {
+    id:'sk-d-sql', name:'SQL Queries', type:'skill', cat:'data', ns:'skill:data:sql-queries',
+    icon:'🗃️', color:'#F59E0B',
+    desc:'Write optimized SQL for Snowflake, BigQuery, Databricks, PostgreSQL, and more. Build CTEs, window functions, and complex multi-join analytical queries.',
+    tools:[
+      {n:'Natural → SQL',       d:'Translate plain-English data requirements into correct, optimized SQL.'},
+      {n:'Query optimization',  d:'Improve slow queries with better indexes, join strategies, and query rewrites.'},
+      {n:'Dialect translation', d:'Convert SQL between Snowflake, BigQuery, PostgreSQL, and other dialects.'},
+      {n:'CTE builder',         d:'Structure complex queries using readable Common Table Expressions.'},
+      {n:'Window functions',    d:'Apply ROW_NUMBER, RANK, LAG, LEAD, and other analytical window functions.'},
+    ]
+  },
+  {
+    id:'sk-d-stats', name:'Statistical Analysis', type:'skill', cat:'data', ns:'skill:data:statistical-analysis',
+    icon:'📐', color:'#F59E0B',
+    desc:'Apply descriptive stats, trend analysis, outlier detection, hypothesis testing, and correlation analysis to datasets using Python statistical libraries.',
+    tools:[
+      {n:'Descriptive stats',   d:'Compute mean, median, standard deviation, percentiles, and distribution shape.'},
+      {n:'Hypothesis testing',  d:'Run t-tests, chi-square, ANOVA, Mann-Whitney, and other significance tests.'},
+      {n:'Outlier detection',   d:'Flag anomalies using IQR, Z-score, isolation forests, or domain-specific rules.'},
+      {n:'Correlation',         d:'Measure variable relationships with Pearson, Spearman, or Kendall correlation.'},
+      {n:'Trend analysis',      d:'Model trends, detect seasonality, and decompose time series.'},
+    ]
+  },
+  {
+    id:'sk-d-dash', name:'Dashboard Builder', type:'skill', cat:'data', ns:'skill:data:build-dashboard',
+    icon:'🖥️', color:'#F59E0B',
+    desc:'Build interactive self-contained HTML dashboards with KPI cards, multi-chart layouts, date filters, and sortable tables — sharable as a single file.',
+    tools:[
+      {n:'KPI dashboard',   d:'Build an executive overview with key metric cards and period-over-period indicators.'},
+      {n:'Multi-chart',     d:'Lay out multiple chart types with shared filters and coordinated interactions.'},
+      {n:'Shareable HTML',  d:'Export a fully self-contained HTML dashboard that runs with no backend or dependencies.'},
+    ]
+  },
+  {
+    id:'sk-e-debug', name:'Debug Assistant', type:'skill', cat:'engineering', ns:'skill:engineering:debug',
+    icon:'🐛', color:'#8B5CF6',
+    desc:'Structured debugging sessions — reproduce issues, isolate root causes from stack traces, diagnose failures, and implement targeted fixes systematically.',
+    tools:[
+      {n:'Reproduce issue',  d:'Create a minimal reproducible example from an error message or stack trace.'},
+      {n:'Isolate cause',    d:'Narrow down the root cause through systematic hypothesis elimination.'},
+      {n:'Stack trace',      d:'Parse and explain stack traces across Python, Node.js, Java, Rust, and more.'},
+      {n:'Implement fix',    d:'Write and verify a targeted fix for the diagnosed issue.'},
+    ]
+  },
+  {
+    id:'sk-e-review', name:'Code Review', type:'skill', cat:'engineering', ns:'skill:engineering:code-review',
+    icon:'👁️', color:'#8B5CF6',
+    desc:'Review code changes for security vulnerabilities, performance issues, correctness, and missing edge cases — for PRs, diffs, or individual functions.',
+    tools:[
+      {n:'Security review',     d:'Scan for injection, auth bypasses, data exposure, and other security risks.'},
+      {n:'Performance review',  d:'Identify N+1 queries, memory leaks, and algorithmic inefficiencies.'},
+      {n:'Correctness check',   d:'Verify logic, boundary conditions, error handling, and expected outputs.'},
+      {n:'PR review',           d:'Review a full pull request diff with actionable, line-level feedback.'},
+    ]
+  },
+  {
+    id:'sk-e-docs', name:'Tech Documentation', type:'skill', cat:'engineering', ns:'skill:engineering:documentation',
+    icon:'📚', color:'#8B5CF6',
+    desc:'Write and maintain technical documentation — READMEs, API references, operational runbooks, onboarding guides, and architecture documentation.',
+    tools:[
+      {n:'README',         d:'Write a comprehensive README with installation, usage, and contribution guide.'},
+      {n:'API docs',       d:'Document REST or GraphQL APIs with endpoint descriptions, schemas, and examples.'},
+      {n:'Runbook',        d:'Create an operational runbook for system procedures and incident response.'},
+      {n:'Onboarding',     d:'Write a developer onboarding guide for new team members.'},
+      {n:'Architecture',   d:'Document system architecture with component descriptions and data flow diagrams.'},
+    ]
+  },
+  {
+    id:'sk-e-sysdesign', name:'System Design', type:'skill', cat:'engineering', ns:'skill:engineering:system-design',
+    icon:'🏗️', color:'#8B5CF6',
+    desc:'Design systems, services, and architectures — API contracts, data models, service boundaries, messaging patterns, and scaling strategies.',
+    tools:[
+      {n:'API design',       d:'Design RESTful or GraphQL APIs with resource modeling and versioning strategy.'},
+      {n:'Data modeling',    d:'Design schemas, entity relationships, and optimized data access patterns.'},
+      {n:'Service mesh',     d:'Define microservice boundaries, ownership, and communication contracts.'},
+      {n:'Scale planning',   d:'Plan horizontal scaling, caching layers, and load balancing approaches.'},
+    ]
+  },
+  {
+    id:'sk-e-incident', name:'Incident Response', type:'skill', cat:'engineering', ns:'skill:engineering:incident-response',
+    icon:'🚨', color:'#8B5CF6',
+    desc:'Run structured incident response — triage severity, draft stakeholder communications, coordinate remediation, and write blameless postmortems.',
+    tools:[
+      {n:'Triage severity',   d:'Assess incident severity (P0–P3), blast radius, and customer impact.'},
+      {n:'Status update',     d:'Draft clear, jargon-free stakeholder communications during an incident.'},
+      {n:'Postmortem',        d:'Write a blameless postmortem with timeline, root cause analysis, and action items.'},
+    ]
+  },
+];
+
+/* ============================================================
+   UTILITY
+============================================================ */
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `${r},${g},${b}`;
+}
+function iconBg(color) { return `rgba(${hexToRgb(color)},0.14)`; }
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._to);
+  t._to = setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+/* ============================================================
+   STORAGE KEY
+============================================================ */
+const LS_KEY = 'mcp_inspector_client_id';
+
+/* ============================================================
+   SETUP WIZARD
+============================================================ */
+function onClientIdInput(val) {
+  const ok = val.trim().endsWith('.apps.googleusercontent.com') && val.trim().length > 20;
+  document.getElementById('setup-save-btn').disabled = !ok;
+}
+
+function saveClientId() {
+  const val = document.getElementById('client-id-input').value.trim();
+  if (!val) return;
+  localStorage.setItem(LS_KEY, val);
+  showSetupScreen(false);
+  showLoginScreen(true, val);
+  initGIS(val);
+}
+
+function enterDemoMode() {
+  showSetupScreen(false);
+  showLoginScreen(true, null);
+  // Show mock button since there's no real Client ID
+  document.getElementById('mock-g-btn').style.display = 'flex';
+}
+
+function resetClientId() {
+  // Go back to setup without clearing (user just wants to change it)
+  showLoginScreen(false);
+  showSetupScreen(true);
+}
+
+function revokeCredentials() {
+  closeUserMenu();
+  if (!confirm('Clear your saved Client ID and sign out?')) return;
+  localStorage.removeItem(LS_KEY);
+  google?.accounts?.id?.disableAutoSelect?.();
+  location.reload();
+}
+
+function signOut() {
+  closeUserMenu();
+  google?.accounts?.id?.disableAutoSelect?.();
+  // Return to login screen
+  document.getElementById('app').classList.remove('show');
+  const cid = localStorage.getItem(LS_KEY);
+  showLoginScreen(true, cid);
+  if (cid) initGIS(cid);
+  showToast('Signed out.');
+}
+
+/* ============================================================
+   SCREEN HELPERS
+============================================================ */
+function showSetupScreen(show) {
+  const el = document.getElementById('setup-screen');
+  el.classList.toggle('show', show);
+}
+function showLoginScreen(show, clientId) {
+  const el = document.getElementById('login-screen');
+  el.style.display = show ? 'flex' : 'none';
+  if (show && clientId) {
+    const masked = clientId.slice(0, 8) + '…' + clientId.slice(-28);
+    document.getElementById('login-client-hint').innerHTML =
+      `🔑 Using saved Client ID: <code style="font-size:10px">${masked}</code>`;
+    document.getElementById('mock-g-btn').style.display = 'none';
+  }
+}
+
+/* ============================================================
+   GOOGLE IDENTITY SERVICES (real OAuth)
+============================================================ */
+function initGIS(clientId) {
+  // Wait for GIS to be ready
+  const attempt = () => {
+    if (typeof google !== 'undefined' && google.accounts) {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback:  handleGISCredential,
+        auto_select: false,
+      });
+      google.accounts.id.renderButton(
+        document.getElementById('gsi-btn-container'),
+        { theme: 'outline', size: 'large', width: 300, text: 'signin_with' }
+      );
+    } else {
+      // GIS script hasn't loaded yet — show mock fallback
+      document.getElementById('mock-g-btn').style.display = 'flex';
+    }
+  };
+  if (document.readyState === 'complete') attempt();
+  else window.addEventListener('load', attempt);
+}
+
+function handleGISCredential(response) {
+  // Decode the JWT payload (no signature verification needed for display)
+  try {
+    const payload = JSON.parse(atob(response.credential.split('.')[1]));
+    const name  = payload.name  || payload.email.split('@')[0];
+    const email = payload.email || '';
+    launchApp(name, email);
+  } catch(e) {
+    // Fallback if decode fails
+    launchApp('User', '');
+  }
+}
+
+/* ============================================================
+   MOCK PICKER  (demo mode / GIS unavailable)
+============================================================ */
+function openPicker() {
+  document.getElementById('modal').classList.add('open');
+}
+function closePicker() {
+  document.getElementById('modal').classList.remove('open');
+}
+function overlayClick(e) {
+  if (e.target === document.getElementById('modal')) closePicker();
+}
+function doSignIn(name, email) {
+  closePicker();
+  launchApp(name || 'Demo User', email || 'demo@example.com');
+}
+
+/* ============================================================
+   LAUNCH APP
+============================================================ */
+function launchApp(name, email) {
+  const init = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+  // Update pill & dropdown
+  document.getElementById('pill-av').textContent    = init;
+  document.getElementById('pill-name').textContent  = name.split(' ')[0];
+  document.getElementById('ud-name').textContent    = name;
+  document.getElementById('ud-email').textContent   = email;
+  // Hide auth screens
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('setup-screen').classList.remove('show');
+  // Show app
+  document.getElementById('app').classList.add('show');
+  initApp();
+  showToast(`Welcome back, ${name.split(' ')[0]}! 👋`);
+}
+
+/* ============================================================
+   USER MENU
+============================================================ */
+function toggleUserMenu(e) {
+  e.stopPropagation();
+  document.getElementById('user-dropdown').classList.toggle('open');
+}
+function closeUserMenu() {
+  document.getElementById('user-dropdown').classList.remove('open');
+}
+document.addEventListener('click', closeUserMenu);
+
+/* ============================================================
+   THEME
+============================================================ */
+let dark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.getElementById('theme-btn').textContent = dark ? '☀️' : '🌙';
+}
+function toggleTheme() { dark = !dark; applyTheme(); }
+applyTheme();
+
+/* ============================================================
+   STATE & FILTER
+============================================================ */
+let filter  = 'all';
+let query   = '';
+let selId   = null;
+
+function setFilter(f, btn) {
+  filter = f;
+  document.querySelectorAll('.sb-tab').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  renderSidebar();
+}
+function onSearch(v) { query = v.toLowerCase().trim(); renderSidebar(); }
+
+function filtered() {
+  return PLUGINS.filter(p => {
+    if (filter === 'mcp'   && p.type !== 'mcp')   return false;
+    if (filter === 'skill' && p.type !== 'skill') return false;
+    if (!query) return true;
+    return p.name.toLowerCase().includes(query)
+        || p.desc.toLowerCase().includes(query)
+        || p.ns.toLowerCase().includes(query)
+        || p.tools.some(t => t.n.toLowerCase().includes(query) || t.d.toLowerCase().includes(query));
+  });
+}
+
+/* ============================================================
+   SIDEBAR RENDER
+============================================================ */
+function renderSidebar() {
+  const list  = filtered();
+  const sbEl  = document.getElementById('sb-list');
+  const metaEl= document.getElementById('sb-meta');
+  const total  = list.reduce((a,p)=>a+p.tools.length,0);
+  metaEl.textContent = `${list.length} plugins · ${total} tools`;
+
+  // Group
+  const mcps = list.filter(p=>p.type==='mcp');
+  const cats  = {};
+  list.filter(p=>p.type==='skill').forEach(p=>{
+    if(!cats[p.cat]) cats[p.cat]=[];
+    cats[p.cat].push(p);
+  });
+
+  const catLabel = {documents:'Document Skills',data:'Data Skills',engineering:'Engineering Skills',automation:'Automation Skills'};
+
+  let html = '';
+  if(mcps.length && filter!=='skill'){
+    html += `<div class="sb-group"><div class="sb-group-label">MCP Servers</div>`;
+    mcps.forEach(p => html += sbItem(p));
+    html += `</div>`;
+  }
+  Object.entries(cats).forEach(([cat,items]) => {
+    if(!items.length || filter==='mcp') return;
+    html += `<div class="sb-group"><div class="sb-group-label">${catLabel[cat]||cat}</div>`;
+    items.forEach(p => html += sbItem(p));
+    html += `</div>`;
+  });
+  if(!list.length) html = `<div class="sb-empty">No results found</div>`;
+
+  sbEl.innerHTML = html;
+}
+
+function sbItem(p) {
+  const sel = selId === p.id ? 'active' : '';
+  return `
+    <div class="sb-item ${sel}" onclick="select('${p.id}')">
+      <div class="sb-icon" style="background:${iconBg(p.color)}">${p.icon}</div>
+      <div class="sb-info">
+        <div class="sb-name">${p.name}</div>
+        <div class="sb-subtype">${p.type==='mcp'?'MCP Server':'Skill · '+p.cat}</div>
+      </div>
+      <span class="sb-badge">${p.tools.length}</span>
+    </div>`;
+}
+
+/* ============================================================
+   DETAIL PANEL
+============================================================ */
+function select(id) {
+  selId = id;
+  renderSidebar();
+  const p = PLUGINS.find(x=>x.id===id);
+  if(!p) return;
+
+  const typeLabel = p.type==='mcp' ? 'MCP Server' : 'Skill';
+  const badgeClass = p.type==='mcp' ? 'badge-mcp'
+    : p.cat==='data' ? 'badge-data'
+    : p.cat==='engineering' ? 'badge-eng'
+    : 'badge-skill';
+
+  const status = p.type==='mcp' ? 'Active' : 'Ready';
+  const kind   = p.type==='mcp' ? 'Server' : 'Skill';
+
+  const toolsHtml = p.tools.map(t => `
+    <div class="tool-card">
+      <div class="tool-card-top">
+        <span class="tool-fn">${t.n}</span>
+        <button class="copy-btn" title="Copy name" onclick="copyTool('${t.n.replace(/'/g,"\\'")}')" tabindex="-1">⎘</button>
+      </div>
+      <div class="tool-desc">${t.d}</div>
+    </div>`).join('');
+
+  document.getElementById('detail').innerHTML = `
+    <div class="fade-up">
+      <div class="d-header">
+        <div class="d-icon" style="background:${iconBg(p.color)};font-size:26px">${p.icon}</div>
+        <div class="d-info">
+          <div class="d-name">${p.name}</div>
+          <div class="d-desc">${p.desc}</div>
+          <div class="d-meta">
+            <span class="badge ${badgeClass}">${typeLabel}</span>
+            <span class="badge badge-ns">${p.ns}</span>
+          </div>
+        </div>
+      </div>
+      <div class="d-stats">
+        <div class="stat-box"><div class="stat-val">${p.tools.length}</div><div class="stat-lbl">Tools</div></div>
+        <div class="stat-box"><div class="stat-val">${status}</div><div class="stat-lbl">Status</div></div>
+        <div class="stat-box"><div class="stat-val">${kind}</div><div class="stat-lbl">Type</div></div>
+      </div>
+      <div class="d-section-title">Tools &amp; Capabilities</div>
+      <div class="tools-grid">${toolsHtml}</div>
+    </div>`;
+}
+
+function copyTool(name) {
+  navigator.clipboard.writeText(name).then(() => showToast(`Copied: ${name}`));
+}
+
+/* ============================================================
+   INIT APP (after sign-in)
+============================================================ */
+function initApp() {
+  const total = PLUGINS.reduce((a,p)=>a+p.tools.length,0);
+  document.getElementById('header-stat').innerHTML =
+    `<b>${PLUGINS.length}</b> plugins · <b>${total}</b> tools`;
+  renderSidebar();
+  if (PLUGINS.length) select(PLUGINS[0].id);
+}
+
+/* ============================================================
+   BOOT — decides which screen to show first
+============================================================ */
+(function boot() {
+  const savedId = localStorage.getItem(LS_KEY);
+  if (savedId) {
+    // Client ID already saved — go straight to login
+    showLoginScreen(true, savedId);
+    initGIS(savedId);
+  } else {
+    // First time — show setup wizard
+    showSetupScreen(true);
+  }
+})();
+</script>
+</body>
+</html>
