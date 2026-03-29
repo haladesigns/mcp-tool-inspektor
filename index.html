@@ -78,7 +78,7 @@
     .setup-steps li { margin-bottom: 2px; }
     .setup-input-wrap { position: relative; margin-bottom: 14px; }
     .setup-input {
-      width: 100%; padding: 11px 14px;
+      width: 100%; padding: 11px 40px 11px 14px;
       border: 1.5px solid var(--border); border-radius: 9px;
       background: var(--bg); color: var(--text-primary);
       font-size: 13px; font-family: 'SF Mono','Fira Code',monospace;
@@ -86,6 +86,12 @@
     }
     .setup-input:focus  { border-color: var(--accent); }
     .setup-input::placeholder { color: var(--text-muted); font-family: inherit; }
+    .eye-btn {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: var(--text-muted);
+      font-size: 16px; padding: 4px; cursor: pointer; line-height: 1;
+    }
+    .eye-btn:hover { color: var(--accent); }
     .setup-btn {
       width: 100%; padding: 11px;
       background: var(--accent); color: #fff;
@@ -450,6 +456,166 @@
       to   { opacity: 1; transform: translateY(0); }
     }
     .fade-up { animation: fadeUp .2s ease; }
+
+    /* =====================================================
+       DEMO MODE
+    ===================================================== */
+    .demo-banner {
+      display: none; align-items: center; gap: 12px;
+      padding: 10px 20px;
+      background: linear-gradient(90deg, #fef3c7, #fde68a);
+      border-bottom: 1px solid #fcd34d;
+      flex-shrink: 0; z-index: 5;
+    }
+    [data-theme="dark"] .demo-banner {
+      background: linear-gradient(90deg, #3a2a00, #2e2000);
+      border-bottom-color: #78580a;
+    }
+    .demo-banner.show { display: flex; }
+    .demo-banner-icon { font-size: 18px; flex-shrink: 0; }
+    .demo-banner-text { flex: 1; font-size: 13px; color: #92400e; font-weight: 500; }
+    [data-theme="dark"] .demo-banner-text { color: #fcd34d; }
+    .demo-banner-text span { font-weight: 400; opacity: .8; }
+    .demo-signin-btn {
+      padding: 7px 16px; border-radius: 8px; border: none;
+      background: #f59e0b; color: #fff;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      white-space: nowrap; transition: opacity .15s; flex-shrink: 0;
+    }
+    .demo-signin-btn:hover { opacity: .85; }
+
+    /* Fake sidebar items in demo mode */
+    .sb-item-demo {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 10px; border-radius: 8px;
+      opacity: .55; cursor: pointer; transition: opacity .15s;
+      user-select: none;
+    }
+    .sb-item-demo:hover { opacity: .75; }
+    .sb-item-demo.active { opacity: 1; background: var(--bg-selected); }
+    .sb-demo-icon {
+      width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px; background: var(--bg-card); position: relative;
+    }
+    .sb-demo-lock {
+      position: absolute; bottom: -2px; right: -2px;
+      font-size: 9px; background: var(--bg-surface);
+      border-radius: 50%; padding: 1px; line-height: 1;
+    }
+    .sb-demo-bar {
+      flex: 1; display: flex; flex-direction: column; gap: 5px;
+    }
+    .sb-demo-line {
+      height: 8px; border-radius: 4px; background: var(--border);
+    }
+
+    /* Locked detail panel */
+    .detail-locked {
+      height: 100%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center; gap: 12px; padding: 32px;
+    }
+    .locked-icon {
+      width: 68px; height: 68px; border-radius: 20px;
+      background: var(--bg-card); border: 2px solid var(--border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px; margin-bottom: 4px;
+    }
+    .locked-title { font-size: 17px; font-weight: 700; }
+    .locked-sub   { font-size: 13px; color: var(--text-sec); max-width: 280px; line-height: 1.6; }
+    .locked-count {
+      font-size: 12px; font-weight: 600; color: var(--accent);
+      background: var(--accent-dim); padding: 4px 12px; border-radius: 20px;
+    }
+    .locked-btn {
+      margin-top: 4px; padding: 10px 24px; border-radius: 9px; border: none;
+      background: var(--accent); color: #fff;
+      font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s;
+    }
+    .locked-btn:hover { opacity: .85; }
+
+    /* =====================================================
+       HAMBURGER & DRAWER OVERLAY
+    ===================================================== */
+    .hamburger {
+      display: none; flex-direction: column; justify-content: center;
+      gap: 5px; width: 34px; height: 34px; padding: 6px;
+      border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg); cursor: pointer; flex-shrink: 0;
+    }
+    .hamburger span {
+      display: block; height: 2px; border-radius: 2px;
+      background: var(--text-sec); transition: all .2s;
+    }
+    .hamburger.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+    .hamburger.open span:nth-child(2) { opacity: 0; }
+    .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+    .drawer-overlay {
+      display: none; position: fixed; inset: 0; z-index: 150;
+      background: rgba(0,0,0,.4); opacity: 0;
+      transition: opacity .25s; pointer-events: none;
+    }
+    .drawer-overlay.show {
+      display: block; opacity: 1; pointer-events: all;
+    }
+
+    /* =====================================================
+       RESPONSIVE — TABLET & MOBILE  (≤ 768px)
+    ===================================================== */
+    @media (max-width: 768px) {
+      /* Screens */
+      #setup-screen, #login-screen { align-items: flex-start; padding-top: 40px; }
+      .setup-card, .login-card {
+        width: calc(100% - 32px); max-width: 460px;
+        padding: 32px 24px 28px; border-radius: 16px;
+      }
+
+      /* Header */
+      .h-stat   { display: none; }
+      .h-search { max-width: none; }
+      .hamburger { display: flex; }
+      .user-pill-name { display: none; }
+      /* Dropdown opens upward / left-aligned on mobile */
+      .user-dropdown { right: 0; min-width: 190px; }
+
+      /* Sidebar becomes off-canvas drawer */
+      .sidebar {
+        position: fixed;
+        left: 0; top: 56px; bottom: 0;
+        z-index: 200; width: 280px;
+        transform: translateX(-100%);
+        transition: transform .25s ease;
+        box-shadow: var(--shadow-lg);
+      }
+      .sidebar.open { transform: translateX(0); }
+
+      /* Detail fills full width */
+      .main   { position: relative; }
+      .detail { padding: 16px 14px; }
+
+      /* Single-column tool grid */
+      .tools-grid { grid-template-columns: 1fr; }
+
+      /* Stats row wraps */
+      .d-stats { flex-wrap: wrap; }
+      .stat-box { min-width: 80px; }
+
+      /* Detail header stacks on very small screens */
+      .d-header { flex-wrap: wrap; }
+    }
+
+    /* =====================================================
+       RESPONSIVE — SMALL PHONES  (≤ 420px)
+    ===================================================== */
+    @media (max-width: 420px) {
+      .h-logo-text { display: none; }
+      .setup-card, .login-card { padding: 28px 18px 24px; }
+      .setup-steps { font-size: 12px; }
+      .detail { padding: 12px 10px; }
+      .d-name { font-size: 18px; }
+    }
   </style>
 </head>
 <body>
@@ -485,11 +651,12 @@
       <input
         id="client-id-input"
         class="setup-input"
-        type="text"
+        type="password"
         placeholder="xxxxxxxxxx.apps.googleusercontent.com"
         oninput="onClientIdInput(this.value)"
         autocomplete="off" spellcheck="false"
       >
+      <button class="eye-btn" type="button" onclick="toggleClientIdVisibility()" title="Show / hide">👁</button>
     </div>
     <button class="setup-btn" id="setup-save-btn" disabled onclick="saveClientId()">
       Save &amp; Continue →
@@ -524,7 +691,7 @@
       Sign in with Google
     </button>
 
-    <p class="login-note" id="login-client-hint" style="margin-top:14px;"></p>
+    <p class="login-note" id="login-client-hint" style="margin-top:14px;color:var(--text-sec)"></p>
     <p class="login-note" style="margin-top:8px;">
       <a href="#" onclick="resetClientId(); return false;" style="color:var(--accent);">Change Client ID</a>
     </p>
@@ -560,12 +727,18 @@
   </div>
 </div>
 
+<!-- Drawer overlay (mobile) -->
+<div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+
 <!-- ========================================================
      APP
 ======================================================== -->
 <div id="app">
   <!-- Header -->
   <header class="app-header">
+    <button class="hamburger" id="hamburger" onclick="toggleDrawer()" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
     <div class="h-logo">
       <div class="h-logo-icon">🔍</div>
       <span class="h-logo-text">MCP <em>Inspector</em></span>
@@ -592,6 +765,15 @@
       </div>
     </div>
   </header>
+
+  <!-- Demo mode banner -->
+  <div class="demo-banner" id="demo-banner">
+    <span class="demo-banner-icon">🔒</span>
+    <div class="demo-banner-text">
+      Demo Mode &nbsp;·&nbsp; <span>Sign in to inspect your real installed plugins and tools.</span>
+    </div>
+    <button class="demo-signin-btn" onclick="goToSignIn()">Sign In</button>
+  </div>
 
   <!-- Body -->
   <div class="main">
@@ -1043,11 +1225,44 @@ function saveClientId() {
   initGIS(val);
 }
 
+/* Fake plugin shapes for demo — names are generic, counts are approximate */
+const DEMO_PLUGINS = [
+  { id:'d1', icon:'📧', name:'Email Integration',    tools:7  },
+  { id:'d2', icon:'📅', name:'Calendar',             tools:9  },
+  { id:'d3', icon:'🗄️', name:'Database Backend',     tools:29 },
+  { id:'d4', icon:'🌐', name:'Browser Automation',   tools:19 },
+  { id:'d5', icon:'📝', name:'Document Skills',      tools:17 },
+  { id:'d6', icon:'⚙️', name:'Engineering Skills',   tools:11 },
+];
+
+let demoMode   = false;
+let demoSelId  = null;
+
 function enterDemoMode() {
+  demoMode = true;
   showSetupScreen(false);
-  showLoginScreen(true, null);
-  // Show mock button since there's no real Client ID
-  document.getElementById('mock-g-btn').style.display = 'flex';
+  showLoginScreen(false, null);
+  document.getElementById('app').classList.add('show');
+  document.getElementById('demo-banner').classList.add('show');
+  // Disable search & filters — no real data to search
+  document.getElementById('search').disabled = true;
+  document.getElementById('search').placeholder = 'Sign in to search…';
+  renderSidebar();
+  renderLockedDetail(null); // show generic locked state initially
+}
+
+function goToSignIn() {
+  // Return to login (or setup if no Client ID saved)
+  demoMode = false;
+  document.getElementById('app').classList.remove('show');
+  document.getElementById('demo-banner').classList.remove('show');
+  const cid = localStorage.getItem(LS_KEY);
+  if (cid) {
+    showLoginScreen(true, cid);
+    initGIS(cid);
+  } else {
+    showSetupScreen(true);
+  }
 }
 
 function resetClientId() {
@@ -1086,11 +1301,44 @@ function showLoginScreen(show, clientId) {
   const el = document.getElementById('login-screen');
   el.style.display = show ? 'flex' : 'none';
   if (show && clientId) {
-    const masked = clientId.slice(0, 8) + '…' + clientId.slice(-28);
+    // Never reveal the actual Client ID — just confirm one is saved
     document.getElementById('login-client-hint').innerHTML =
-      `🔑 Using saved Client ID: <code style="font-size:10px">${masked}</code>`;
+      `✅ Client ID saved &nbsp;·&nbsp; <a href="#" onclick="resetClientId();return false;" style="color:var(--accent)">Change</a>`;
     document.getElementById('mock-g-btn').style.display = 'none';
   }
+}
+
+/* ============================================================
+   CLIENT ID SHOW / HIDE TOGGLE  (input only, never persisted)
+============================================================ */
+function toggleClientIdVisibility() {
+  const inp = document.getElementById('client-id-input');
+  const btn = inp.nextElementSibling;
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
+/* ============================================================
+   DRAWER (mobile sidebar)
+============================================================ */
+function toggleDrawer() {
+  const sidebar  = document.querySelector('.sidebar');
+  const overlay  = document.getElementById('drawer-overlay');
+  const hamburger= document.getElementById('hamburger');
+  const isOpen   = sidebar.classList.contains('open');
+  sidebar.classList.toggle('open', !isOpen);
+  overlay.classList.toggle('show', !isOpen);
+  hamburger.classList.toggle('open', !isOpen);
+}
+function closeDrawer() {
+  document.querySelector('.sidebar').classList.remove('open');
+  document.getElementById('drawer-overlay').classList.remove('show');
+  document.getElementById('hamburger').classList.remove('open');
 }
 
 /* ============================================================
@@ -1222,9 +1470,28 @@ function filtered() {
    SIDEBAR RENDER
 ============================================================ */
 function renderSidebar() {
+  const sbEl   = document.getElementById('sb-list');
+  const metaEl = document.getElementById('sb-meta');
+
+  // ---- DEMO MODE: show fake locked items only ----
+  if (demoMode) {
+    metaEl.innerHTML = `<span style="color:var(--accent)">🔒 Sign in to unlock</span>`;
+    sbEl.innerHTML = `<div class="sb-group"><div class="sb-group-label">Plugins</div>` +
+      DEMO_PLUGINS.map(p => `
+        <div class="sb-item-demo ${demoSelId===p.id?'active':''}" onclick="demoSelect('${p.id}','${p.icon}','${p.name}',${p.tools})">
+          <div class="sb-demo-icon">${p.icon}<span class="sb-demo-lock">🔒</span></div>
+          <div class="sb-demo-bar">
+            <div class="sb-demo-line" style="width:${50+Math.random()*40}%"></div>
+            <div class="sb-demo-line" style="width:${30+Math.random()*30}%;opacity:.5"></div>
+          </div>
+          <span class="sb-badge">${p.tools}</span>
+        </div>`).join('') +
+      `</div>`;
+    return;
+  }
+
+  // ---- REAL MODE ----
   const list  = filtered();
-  const sbEl  = document.getElementById('sb-list');
-  const metaEl= document.getElementById('sb-meta');
   const total  = list.reduce((a,p)=>a+p.tools.length,0);
   metaEl.textContent = `${list.length} plugins · ${total} tools`;
 
@@ -1271,8 +1538,40 @@ function sbItem(p) {
 /* ============================================================
    DETAIL PANEL
 ============================================================ */
+function demoSelect(id, icon, name, count) {
+  demoSelId = id;
+  renderSidebar();
+  renderLockedDetail({ icon, name, count });
+  closeDrawer();
+}
+
+function renderLockedDetail(plugin) {
+  const panel = document.getElementById('detail');
+  if (!plugin) {
+    panel.innerHTML = `
+      <div class="detail-locked fade-up">
+        <div class="locked-icon">🔒</div>
+        <div class="locked-title">Your tools are waiting</div>
+        <div class="locked-sub">Sign in with Google to inspect all your installed MCP servers, plugins, and skills.</div>
+        <div class="locked-count">${PLUGINS.length} plugins · ${PLUGINS.reduce((a,p)=>a+p.tools.length,0)}+ tools in this session</div>
+        <button class="locked-btn" onclick="goToSignIn()">Sign In to Unlock →</button>
+      </div>`;
+  } else {
+    panel.innerHTML = `
+      <div class="detail-locked fade-up">
+        <div class="locked-icon">${plugin.icon}</div>
+        <div class="locked-title">${plugin.name}</div>
+        <div class="locked-sub">Sign in to see all ${plugin.count} tools in this plugin, their descriptions, and copy their names.</div>
+        <div class="locked-count">${plugin.count} tools locked</div>
+        <button class="locked-btn" onclick="goToSignIn()">Sign In to Unlock →</button>
+      </div>`;
+  }
+}
+
 function select(id) {
+  if (demoMode) return; // should never reach here, but guard anyway
   selId = id;
+  closeDrawer(); // auto-close sidebar on mobile after selection
   renderSidebar();
   const p = PLUGINS.find(x=>x.id===id);
   if(!p) return;
